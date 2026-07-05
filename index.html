@@ -166,6 +166,16 @@
   .db-row.sel .db-dot { width: 16px; height: 16px; }
   .db-gap { width: 52px; min-width: 52px; text-align: right; padding-left: 10px; font-size: 12px; font-weight: 600; color: #4b5563; font-variant-numeric: tabular-nums; }
   .db-row.sel .db-gap { font-weight: 800; color: var(--ink); }
+  /* correlation bar comparison */
+  .cbar-wrap { margin-top: 2px; }
+  .cbar-row { display: flex; align-items: center; height: 24px; margin-bottom: 3px; border-radius: 6px; }
+  .cbar-lab { width: 96px; min-width: 96px; text-align: right; padding-right: 12px; font-size: 12px; font-weight: 600; color: #4b5563; white-space: nowrap; }
+  .cbar-row.sel .cbar-lab { font-weight: 800; color: var(--ink); }
+  .cbar-track { flex: 1; height: 16px; background: #eef1f2; border-radius: 4px; overflow: hidden; }
+  .cbar-fill { height: 100%; background: #bcd8d1; border-radius: 4px; }
+  .cbar-row.sel .cbar-fill { background: #2f7d70; }
+  .cbar-val { width: 50px; min-width: 50px; text-align: right; padding-left: 10px; font-size: 12px; font-weight: 600; color: #4b5563; font-variant-numeric: tabular-nums; }
+  .cbar-row.sel .cbar-val { font-weight: 800; color: var(--ink); }
   .gh-chart { margin: 2px 0 16px; }
   .gh-chart-cap { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
   .gh-nochart { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
@@ -1511,6 +1521,25 @@ function growthBlock(num, title, chips, chart, measures, shows) {
     + "<div class='gh-shows'><span class='gh-lab'>What this scale shows</span>" + shows + "</div>"
     + "</div>";
 }
+// Cross-scale bar of fall-spring correlations, sorted desc, current scale highlighted.
+function growthCorrBar(curCode) {
+  const rows = Object.keys(GROWTH).map(code => ({ code: code, corr: GROWTH[code].corr }))
+    .filter(r => r.corr != null)
+    .sort((a, b) => b.corr - a.corr);
+  if (!rows.length) return "";
+  let h = "<div class='gh-chart'><div class='gh-chart-cap'>Fall\u2013spring correlation across all scales with growth data \u2014 current scale highlighted. Higher = more stable rank-ordering.</div><div class='cbar-wrap'>";
+  rows.forEach(r => {
+    const sel = r.code === curCode;
+    const w = Math.max(0, Math.min(100, r.corr * 100));
+    h += "<div class='cbar-row" + (sel ? ' sel' : '') + "'>"
+      + "<div class='cbar-lab'>" + r.code + "</div>"
+      + "<div class='cbar-track'><div class='cbar-fill' style='width:" + w + "%'></div></div>"
+      + "<div class='cbar-val'>" + r.corr.toFixed(2) + "</div>"
+      + "</div>";
+  });
+  return h + "</div></div>";
+}
+
 // Cross-scale dumbbell: Khan (teal) vs. direct/RTI (orange) growth for every scale
 // that has a validated comparison, sorted by gap, with the current scale highlighted.
 const GROWTH_KHAN_COL = '#2f8f83';
@@ -1557,8 +1586,8 @@ function renderGrowth(a) {
   // 01 — Correlation
   const cb = corrBand(g.corr);
   h += growthBlock("01", "Fall\u2013Spring Khan Correlation",
-    ghChips([{ lbl: 'Fall\u2013spring r', val: ghFmt2(g.corr), col: cb.col }]),
-    "",
+    ghChips([{ lbl: 'Correlation (r)', val: ghFmt2(g.corr), col: cb.col }]),
+    growthCorrBar(a.code),
     "A Pearson correlation between each child\u2019s fall and spring score. It measures <b>rank-order stability</b> \u2014 whether a child\u2019s relative standing holds from fall to spring \u2014 <b>not</b> growth. A scale can show strong growth and still correlate weakly if that growth is uneven across children.",
     "The correlation of <b style='color:" + cb.col + "'>r = " + ghFmt2(g.corr) + "</b> is <b style='color:" + cb.col + "'>" + cb.word + "</b> \u2014 " + corrPhrase(cb.word) + ".");
 
