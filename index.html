@@ -163,7 +163,9 @@
   .db-dot { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; }
   .db-dot.khan { background: #2f8f83; box-shadow: 0 0 0 1.5px #2f8f83; }
   .db-dot.rti { background: #e08a1e; box-shadow: 0 0 0 1.5px #e08a1e; }
+  .db-dot.ns { border: none; box-shadow: none; width: 9px; height: 9px; }
   .db-row.sel .db-dot { width: 16px; height: 16px; }
+  .db-row.sel .db-dot.ns { width: 12px; height: 12px; }
   .db-gap { width: 52px; min-width: 52px; text-align: right; padding-left: 10px; font-size: 12px; font-weight: 600; color: #4b5563; font-variant-numeric: tabular-nums; }
   .db-row.sel .db-gap { font-weight: 800; color: var(--ink); }
   /* correlation bar comparison */
@@ -1559,17 +1561,19 @@ function growthDumbbell(curCode) {
 
   let h = "<div class='gh-chart'><div class='gh-chart-cap'>Standardized growth (SD units) across all scales with a validated comparison \u2014 "
     + "<b style='color:" + GROWTH_KHAN_COL + "'>\u25CF Khan</b> vs. <b style='color:" + GROWTH_RTI_COL + "'>\u25CF direct assessment</b>. "
-    + "Sorted by the gap (RTI \u2212 Khan), shown at right.</div><div class='db-wrap'>";
+    + "A <b>ring</b> marks a statistically significant change (p \u2264 0.05); a plain dot is not significant. Sorted by the gap (RTI \u2212 Khan), shown at right.</div><div class='db-wrap'>";
   rows.forEach(r => {
     const sel = r.code === curCode;
     const k = pos(r.khan), t = pos(r.rti);
     const l = Math.min(k, t), w = Math.abs(t - k);
+    const kSig = ghSig(r.khanP), tSig = ghSig(r.rtiP);
+    const sigTxt = p => ghSig(p) ? ' (significant)' : ' (n.s.)';
     h += "<div class='db-row" + (sel ? ' sel' : '') + "'>"
       + "<div class='db-lab'>" + r.code + "</div>"
       + "<div class='db-track'>"
       + "<div class='db-line' style='left:" + l + "%;width:" + w + "%'></div>"
-      + "<div class='db-dot rti' title='" + (r.rtiName || 'Direct') + " " + r.rti.toFixed(2) + "' style='left:" + t + "%'></div>"
-      + "<div class='db-dot khan' title='Khan " + r.khan.toFixed(2) + "' style='left:" + k + "%'></div>"
+      + "<div class='db-dot rti" + (tSig ? '' : ' ns') + "' title='" + (r.rtiName || 'Direct') + " " + r.rti.toFixed(2) + sigTxt(r.rtiP) + "' style='left:" + t + "%'></div>"
+      + "<div class='db-dot khan" + (kSig ? '' : ' ns') + "' title='Khan " + r.khan.toFixed(2) + sigTxt(r.khanP) + "' style='left:" + k + "%'></div>"
       + "</div>"
       + "<div class='db-gap'>" + r.gap.toFixed(2) + "</div>"
       + "</div>";
