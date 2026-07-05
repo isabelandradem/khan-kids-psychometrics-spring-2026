@@ -580,6 +580,13 @@ function scApriR(a) {
   const m = v.measures.find(m => m.key === v.apriori && m.r != null);
   return m ? m.r : null;
 }
+// A scale has a "strong a priori match" when an a priori criterion is defined,
+// has a value, and isn't flagged as an inappropriate match (divergent_na).
+function scStrongApriori(a) {
+  const v = a.validity;
+  if (!v || !v.measures || !v.apriori || v.divergent_na) return false;
+  return v.measures.some(m => m.key === v.apriori && m.r != null);
+}
 const DOMAIN_SHORT = { 'Mathematics': 'Math', 'Literacy': 'Literacy', 'Executive Function': 'EF', 'Language': 'Language' };
 const SCORECARD_METRICS = [
   { label: 'Score distribution', thresh: 'Normal (\u2248 bell curve)',
@@ -590,9 +597,11 @@ const SCORECARD_METRICS = [
     green: a => { const p = scItemRestPct(a); return p != null && p < 10; } },
   { label: 'Exit rate', thresh: '&lt; 20% attrition',
     green: a => { const e = scExitPct(a); return e != null && e < 20; } },
-  { label: 'Concurrent validity', thresh: 'r \u2265 0.30 vs a priori match',
+  { label: 'Concurrent validity', thresh: 'r \u2265 0.30 (a priori matches only)',
+    applies: scStrongApriori,
     green: a => { const r = scApriR(a); return r != null && r >= 0.30; } },
   { label: 'Divergent validity', thresh: 'a priori / same-domain strongest',
+    applies: scStrongApriori,
     green: a => { if (!a.validity || !a.validity.measures) return false; const vd = vVerdict(a.validity); return vd.kind === 'pass' || vd.kind === 'near'; } },
   { label: 'Logical progression', thresh: 'No reversal between PLs',
     green: a => { const s = tierMeans(a).steps; return s.length > 0 && s.every(x => x.delta >= 0); } }
@@ -601,7 +610,7 @@ const SCORECARD_METRICS = [
 function renderOverview() {
   const total = GROUPS.reduce((s, g) => s + g.assessments.length, 0);
   let h = "<div class='notes' style='margin-top:0;max-width:900px'>For every metric tracked in the domain summaries, this shows how many assessment scales currently land <b>in the green</b> (meet the target). "
-    + "<b>Overall</b> is across all " + total + " scales; each domain column is <i>green scales / scales in that domain</i>. Click a domain in the sidebar for the scale-by-scale detail.</div>";
+    + "Each cell is <i>green scales / scales assessed</i>. Most rows use all " + total + " scales; <b>Concurrent</b> and <b>Divergent validity</b> are reported only over scales with a strong a priori match. Click a domain in the sidebar for the scale-by-scale detail.</div>";
   h += "<div class='card' style='display:block;width:100%;max-width:1024px'>";
   h += "<table class='scoretable'><thead><tr>"
      + "<th class='left'>Metric</th><th class='left'>Threshold</th>"
@@ -609,20 +618,21 @@ function renderOverview() {
   GROUPS.forEach(g => { h += "<th>" + (DOMAIN_SHORT[g.domain] || g.domain) + "</th>"; });
   h += "</tr></thead><tbody>";
   SCORECARD_METRICS.forEach(m => {
-    let gTot = 0;
+    let gTot = 0, tTot = 0;
     let cells = "";
     GROUPS.forEach(g => {
-      const n = g.assessments.length;
-      const cnt = g.assessments.filter(m.green).length;
-      gTot += cnt;
-      const cls = cnt === n ? 'pass' : (cnt === 0 ? 'fail' : '');
+      const applic = m.applies ? g.assessments.filter(m.applies) : g.assessments;
+      const n = applic.length;
+      const cnt = applic.filter(m.green).length;
+      gTot += cnt; tTot += n;
+      const cls = n === 0 ? '' : (cnt === n ? 'pass' : (cnt === 0 ? 'fail' : ''));
       cells += "<td class='cnt " + cls + "'>" + cnt + "/" + n + "</td>";
     });
-    const pctAll = Math.round(gTot / total * 100);
-    const ocls = gTot === total ? 'pass' : (gTot === 0 ? 'fail' : '');
+    const pctAll = tTot ? Math.round(gTot / tTot * 100) : 0;
+    const ocls = tTot === 0 ? '' : (gTot === tTot ? 'pass' : (gTot === 0 ? 'fail' : ''));
     h += "<tr><td class='left metric'>" + m.label + "</td>"
        + "<td class='left thresh'>" + m.thresh + "</td>"
-       + "<td class='overall-col cnt " + ocls + "'>" + pctAll + "% <span class='sub'>(" + gTot + "/" + total + ")</span></td>"
+       + "<td class='overall-col cnt " + ocls + "'>" + pctAll + "% <span class='sub'>(" + gTot + "/" + tTot + ")</span></td>"
        + cells + "</tr>";
   });
   h += "</tbody></table></div>";
@@ -630,6 +640,7 @@ function renderOverview() {
     + "<b>Score distribution</b> = normal (not floor/ceiling). <b>Cronbach\u2019s \u03B1</b> \u2265 0.70. "
     + "<b>Item-rest</b> &lt; 10% of items below r = 0.20. <b>Exit rate</b> &lt; 20%. "
     + "<b>Concurrent validity</b> r \u2265 0.30 with the a priori match. <b>Divergent validity</b> = the a priori (or a same-domain) measure is the strongest correlation. "
+    + "These two are counted only over scales with a <b>strong a priori match</b> (scales with no suitable external criterion \u2014 e.g. letter-knowledge scales vs the phonological-awareness TOPEL PA \u2014 are left out of the denominator). "
     + "<b>Logical progression</b> counts a scale as green when there is <b>no reversal</b> between performance levels \u2014 a red (next level easier) is the only failure; orange (small step) still counts.</div>";
   return h;
 }
