@@ -594,7 +594,7 @@ const SCORECARD_METRICS = [
     green: a => { const r = scApriR(a); return r != null && r >= 0.30; } },
   { label: 'Divergent validity', thresh: 'a priori / same-domain strongest',
     green: a => { if (!a.validity || !a.validity.measures) return false; const vd = vVerdict(a.validity); return vd.kind === 'pass' || vd.kind === 'near'; } },
-  { label: 'Logical progression', thresh: 'No reversal between PLs (orange OK)',
+  { label: 'Logical progression', thresh: 'No reversal between PLs',
     green: a => { const s = tierMeans(a).steps; return s.length > 0 && s.every(x => x.delta >= 0); } }
 ];
 
