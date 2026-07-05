@@ -640,11 +640,11 @@ function renderOverview() {
       const n = applic.length;
       const cnt = applic.filter(m.green).length;
       gTot += cnt; tTot += n;
-      const cls = n === 0 ? '' : (cnt === n ? 'pass' : (cnt === 0 ? 'fail' : ''));
+      const cls = n === 0 ? '' : (cnt / n > 0.8 ? 'pass' : (cnt === 0 ? 'fail' : ''));
       cells += "<td class='cnt " + cls + "'>" + cnt + "/" + n + "</td>";
     });
     const pctAll = tTot ? Math.round(gTot / tTot * 100) : 0;
-    const ocls = tTot === 0 ? '' : (gTot === tTot ? 'pass' : (gTot === 0 ? 'fail' : ''));
+    const ocls = tTot === 0 ? '' : (gTot / tTot > 0.8 ? 'pass' : (gTot === 0 ? 'fail' : ''));
     h += "<tr><td class='left metric'>" + m.label + "</td>"
        + "<td class='left thresh'>" + m.thresh + "</td>"
        + "<td class='overall-col cnt " + ocls + "'>" + pctAll + "% <span class='sub'>(" + gTot + "/" + tTot + ")</span></td>"
