@@ -531,13 +531,12 @@ function renderSummary(group) {
   h += "<table class='sumtable'><thead><tr>"
      + "<th>Scale</th>"
      + "<th>Score distribution</th>"
-     + "<th class='num'>Cronbach\u2019s \u03B1<span class='th-sub'>target &gt; 0.7</span></th>"
+     + "<th class='num'>Cronbach\u2019s <span style='text-transform:none'>\u03B1</span><span class='th-sub'>target &gt; 0.7</span></th>"
      + "<th class='num'>% items item-rest r &lt; 0.20<span class='th-sub'>target &lt; 10%</span></th>"
      + "<th class='num'>Exit rate<span class='th-sub'>target &lt; 20%</span></th>"
-     + "<th>A priori correlation<span class='th-sub'>r with expected criterion</span></th>"
-     + "<th>Strongest external match<span class='th-sub'>matches expectations?</span></th>"
-     + "<th>Difficulty steps<span class='th-sub'>\u0394 between PLs \u00B7 red = reversal</span></th>"
-     + "<th class='num'>% correct above guessing<span class='th-sub'>overall, post-stop</span></th>"
+     + "<th>Concurrent validity<span class='th-sub'>r with a priori match</span></th>"
+     + "<th>Divergent validity<span class='th-sub'>highest correlation</span></th>"
+     + "<th>Logical progression<span class='th-sub'>\u0394 in % correct between PLs</span></th>"
      + "</tr></thead><tbody>";
   group.assessments.forEach(a => {
     const dtxt = SCORE_DIST[a.code] || '\u2014';
@@ -600,15 +599,6 @@ function renderSummary(group) {
           });
           return c + "</div>";
         })() + "</td>"
-      + "<td class='num'>" + (function () {
-          const g = (a.perf && a.perf.grade) || [];
-          let wSum = 0, wN = 0;
-          g.forEach(r => { if (r.n) { wSum += r.diff * r.n; wN += r.n; } });
-          if (!wN) return "<span class='sub'>\u2014</span>";
-          const ov = wSum / wN, pts = ov * 100;
-          const c = pts < 5 ? 'var(--green)' : (pts < 15 ? 'var(--orange)' : '#c0392b');
-          return "<span class='val' style='color:" + c + "'>" + perfPts(ov) + " pts</span>";
-        })() + "</td>"
       + "</tr>";
   });
   h += "</tbody></table></div>";
@@ -616,10 +606,9 @@ function renderSummary(group) {
      + "<b>Cronbach\u2019s \u03B1</b>: green \u2265 0.70, orange 0.50\u20130.69, red &lt; 0.50. "
      + "<b>% items with item-rest r &lt; 0.20</b>: green &lt; 10%, orange \u2265 10%. "
      + "<b>Exit rate</b> = item-attrition (first \u2212 last item N \u00F7 first): green &lt; 20%, orange 20\u201330%, red &gt; 30%. "
-     + "<b>A priori correlation</b> = r with the expected external criterion: green \u2265 0.30, orange 0.20\u20130.29, red &lt; 0.20. "
-     + "<b>Strongest external match</b> = the highest-correlating external measure; \u2713 if it's the a priori criterion (as expected), \u2248 if a different same-domain measure wins, \u2717 if another domain wins. "
-     + "<b>Difficulty steps</b> = \u0394 in mean % correct between adjacent performance levels (lower level minus next): green = clear step (\u2265 5 pts harder), orange = barely differs (0\u20135 pts), red = reversal (next level easier). "
-     + "<b>% correct above guessing (overall, post-stop)</b> = N-weighted mean of (% correct \u2212 chance) across post-stop items; higher = discontinue rule may end too early: green &lt; 5 pts, orange 5\u201315 pts, red &gt; 15 pts.</div>";
+     + "<b>Concurrent validity</b> = r with the a priori match (the expected external criterion): green \u2265 0.30, orange 0.20\u20130.29, red &lt; 0.20. "
+     + "<b>Divergent validity</b> = the highest-correlating external measure; \u2713 if it's the a priori criterion (as expected), \u2248 if a different same-domain measure wins, \u2717 if another domain wins. "
+     + "<b>Logical progression</b> = \u0394 in mean % correct between adjacent performance levels (lower level minus next): green = clear step (\u2265 5 pts harder), orange = barely differs (0\u20135 pts), red = reversal (next level easier).</div>";
   return h;
 }
 
