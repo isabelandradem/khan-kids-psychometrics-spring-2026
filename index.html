@@ -309,7 +309,12 @@
 
   /* ── Per-scale ranking (Overview) ── */
   .rank-intro { max-width: 900px; margin: 30px 0 0; }
-  .rank-dtitle { font-size: 15px; font-weight: 800; color: var(--ink); margin: 22px 0 10px; }
+  .rank-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 14px; }
+  .rank-tab { font-family: inherit; font-size: 13px; font-weight: 700; color: var(--muted);
+    background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px; cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s; }
+  .rank-tab:hover { border-color: #cbd3dc; color: var(--ink); }
+  .rank-tab.active { background: #11202b; border-color: #11202b; color: #fff; }
   .ranktable { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
   .ranktable th { text-align: left; font-size: 11px; font-weight: 700; color: var(--muted);
     text-transform: uppercase; letter-spacing: .4px; padding: 0 14px 10px; border-bottom: 1px solid var(--line); }
@@ -771,14 +776,19 @@ function renderOverview() {
     + "These two are counted only over scales with a <b>strong a priori match</b> (scales with no suitable external criterion \u2014 e.g. letter-knowledge scales vs the phonological-awareness TOPEL PA \u2014 are left out of the denominator). "
     + "<b>Logical progression</b> counts a scale as green when there is <b>no reversal</b> between performance levels \u2014 a red (next level easier) is the only failure; orange (small step) still counts.</div>";
 
-  // ── Scale ranking, by domain ──
+  // ── Scale ranking, by domain (tabbed) ──
   h += "<div class='notes rank-intro'><h2 style='font-size:18px;margin:0 0 6px;color:var(--ink)'>Scale ranking by domain</h2>"
     + "Every scale scored on the seven targets above. <b>Targets met</b> is the share landing green (concurrent &amp; divergent validity count only for scales with a strong a priori match). "
     + "Flags list what a scale misses \u2014 <span class='rank-flag watch' style='padding:1px 7px'>orange = watch</span> vs <span class='rank-flag fail' style='padding:1px 7px'>red = fail</span> (\u03B1 &lt; 0.50, exit &gt; 30%, concurrent r &lt; 0.20, or a PL reversal).</div>";
-  GROUPS.forEach(g => {
+  h += "<div class='rank-tabs'>";
+  GROUPS.forEach((g, gi) => {
+    h += "<button class='rank-tab" + (gi === 0 ? " active" : "") + "' onclick='rankShow(" + gi + ")'>" + g.domain + "</button>";
+  });
+  h += "</div>";
+  GROUPS.forEach((g, gi) => {
     const ranked = g.assessments.map(a => ({ a, r: scaleReport(a) }))
       .sort((x, y) => (y.r.pct - x.r.pct) || (x.r.fails - y.r.fails) || (x.r.flags.length - y.r.flags.length));
-    h += "<div class='rank-dtitle'>" + g.domain + "</div>";
+    h += "<div class='rank-panel' data-rank='" + gi + "'" + (gi === 0 ? "" : " style='display:none'") + ">";
     h += "<div class='card' style='display:block;width:100%;max-width:1024px'>";
     h += "<table class='ranktable'><thead><tr>"
        + "<th style='width:190px'>Scale</th><th style='width:130px'>Targets met</th><th>Flags</th>"
@@ -800,10 +810,19 @@ function renderOverview() {
         + "<td>" + flagsHtml + "</td>"
         + "</tr>";
     });
-    h += "</tbody></table></div>";
+    h += "</tbody></table></div></div>";
   });
 
   return h;
+}
+
+function rankShow(gi) {
+  document.querySelectorAll('.rank-panel').forEach(p => {
+    p.style.display = (+p.dataset.rank === gi) ? '' : 'none';
+  });
+  document.querySelectorAll('.rank-tab').forEach((b, i) => {
+    b.classList.toggle('active', i === gi);
+  });
 }
 
 function renderSummary(group) {
