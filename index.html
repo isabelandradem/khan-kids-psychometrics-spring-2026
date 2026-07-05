@@ -374,11 +374,11 @@
     <h2 id="title"></h2>
     <div class="view-toggle" id="viewToggle">
       <button data-view="percent">Percent Correct by PL</button>
-      <button data-view="perf">Discontinue Rules</button>
       <button data-view="dist">Total Score Distribution</button>
       <button data-view="exit">Exit Rate</button>
       <button data-view="corr">Inter-Item Correlations</button>
       <button data-view="validity">Validity</button>
+      <button data-view="perf">Discontinue Rules</button>
     </div>
   </div>
   <div id="content"></div>
@@ -850,14 +850,15 @@ function perfPts(x) { // signed percentage-point string, 1 decimal
   return (v > 0 ? '+' : '') + v;
 }
 
-// Severity ramp for above-guessing bars: mild amber near chance -> deep
-// orange/red the further above guessing (in percentage points).
+// Bars up to PERF_GREEN_MAX pts above guessing are treated as appropriate
+// (green). Above that the ramp goes mild amber -> deep orange/red.
+const PERF_GREEN_MAX = 10; // <= 10 pts above guessing = green (rule looks appropriate)
 const PERF_RAMP = [
-  [0, [246, 205, 123]],   // <=0 pts: mild amber-yellow (not as bad)
-  [5, [240, 170, 70]],    // ~5 pts
-  [12, [208, 110, 11]],   // ~12 pts: brand orange
-  [20, [190, 84, 28]],    // ~20 pts: deep orange
-  [28, [192, 57, 43]]     // >=28 pts: red
+  [10, [246, 205, 123]],  // just above 10 pts: mild amber-yellow
+  [16, [240, 170, 70]],   // ~16 pts
+  [22, [208, 110, 11]],   // ~22 pts: brand orange
+  [30, [190, 84, 28]],    // ~30 pts: deep orange
+  [38, [192, 57, 43]]     // >=38 pts: red
 ];
 function perfMix(a, b, t) { return [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t)); }
 function perfLum(c) { return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255; }
@@ -877,11 +878,13 @@ function perfRow(label, pct, prob, diff, opts) {
   const w = Math.max(0, Math.min(100, pct * 100));
   const gp = Math.max(0, Math.min(100, prob * 100));
   const below = diff < 0;
-  // Above guessing post-stop is the concern: amber (mild) -> red (severe) by how
-  // far above guessing. At/below guessing = appropriate (flat green).
-  const aboveRGB = perfRampRGB(diff * 100);
-  const barCol = below ? 'var(--green)' : ("rgb(" + aboveRGB.join(",") + ")");
-  const valCol = below ? 'var(--green)' : '#9a4a07';
+  const pts = diff * 100;
+  // Within PERF_GREEN_MAX pts of guessing = appropriate (flat green). Further
+  // above than that ramps amber (mild) -> red (severe).
+  const ok = pts <= PERF_GREEN_MAX;
+  const aboveRGB = perfRampRGB(pts);
+  const barCol = ok ? 'var(--green)' : ("rgb(" + aboveRGB.join(",") + ")");
+  const valCol = ok ? 'var(--green)' : '#9a4a07';
   const shown = Math.round(pct * 100) + '%';
   const labStyle = opts.labWidth ? ("width:" + opts.labWidth + "px;min-width:" + opts.labWidth + "px;") : "";
   const tip = (opts.tip || label) + ': ' + (pct * 100).toFixed(1) + '% correct vs ~'
@@ -894,10 +897,10 @@ function perfRow(label, pct, prob, diff, opts) {
   // Marker contrasts with whatever sits behind it: light over a dark bar, dark
   // over a pale bar or the empty track (below chance).
   const onBar = gp <= w;
-  const markCol = (below || !onBar) ? '#334155' : (perfLum(aboveRGB) < 0.55 ? 'rgba(255,255,255,.92)' : '#334155');
+  const markCol = (!onBar) ? '#334155' : (ok ? 'rgba(255,255,255,.92)' : (perfLum(aboveRGB) < 0.55 ? 'rgba(255,255,255,.92)' : '#334155'));
   const mark = "<div class='gl-mark' style='left:" + gp + "%;border-color:" + markCol + "' title='Guessing baseline \u2248 " + Math.round(prob * 100) + "%'></div>";
 
-  let right = "<span class='perf-chip " + (below ? 'neg' : 'pos') + "'>" + perfPts(diff) + " pts</span>";
+  let right = "<span class='perf-chip " + (ok ? 'neg' : 'pos') + "'>" + perfPts(diff) + " pts</span>";
   if (opts.n != null) right += "<span class='perf-n'>n=" + opts.n.toLocaleString() + "</span>";
 
   return "<div class='pc-row'>"
@@ -943,7 +946,7 @@ function renderPerf(a) {
   const overall = wN ? wSum / wN : null;
   h += "<div class='corr-stats'>";
   if (overall != null)
-    h += "<div class='stat-card'><div class='sv' style='color:" + (overall > 0 ? 'var(--orange)' : 'var(--green)') + "'>" + perfPts(overall) + " pts</div><div class='sl'>% correct above guessing (overall, post-stop)</div></div>";
+    h += "<div class='stat-card'><div class='sv' style='color:" + (overall * 100 <= PERF_GREEN_MAX ? 'var(--green)' : 'var(--orange)') + "'>" + perfPts(overall) + " pts</div><div class='sl'>% correct above guessing (overall, post-stop)</div></div>";
   if (nItems) {
     h += "<div class='stat-card'><div class='sv'>" + nItems + "</div><div class='sl'>Post-stop items analyzed</div></div>";
     h += "<div class='stat-card'><div class='sv' style='color:" + (nAbove ? 'var(--orange)' : 'var(--green)') + "'>" + nAbove + "/" + nItems + "</div><div class='sl'>Post-stop items still above chance</div></div>";
@@ -991,13 +994,13 @@ function renderPerf(a) {
 
   // Legend + notes
   h += "<div class='pc-tierlegend'>"
-     + "<div class='k'><span class='sw' style='width:60px;background:linear-gradient(90deg,#f6cd7b,#d06e0b,#c0392b)'></span>Above guessing \u2014 deeper = further above (worse)</div>"
-     + "<div class='k'><span class='sw' style='background:var(--green)'></span>At/below guessing \u2014 rule looks appropriate</div>"
+     + "<div class='k'><span class='sw' style='background:var(--green)'></span>Within 10 pts of guessing \u2014 rule looks appropriate</div>"
+     + "<div class='k'><span class='sw' style='width:60px;background:linear-gradient(90deg,#f6cd7b,#d06e0b,#c0392b)'></span>More than 10 pts above guessing \u2014 deeper = further above (worse)</div>"
      + "<div class='k'><span class='sw' style='width:0;border-left:2px dashed #64748b;height:14px;border-radius:0'></span>Guessing baseline (chance)</div></div>";
   h += "<div class='notes'>Each bar is the group/item\u2019s <b>% correct</b> on post-stop items; the <b>dashed line</b> marks the chance of a correct guess "
      + "(<i>Prob. Correct</i>, e.g. a 1-of-5 tap \u2248 20%). The gap between the bar and the dashed line is the <b>% correct above guessing</b> \u2014 the variable of interest. "
      + "Because these are <b>post-stop</b> items (seen after the level where a discontinue rule would have ended the child), above-guessing bars are a concern \u2014 kids were still answering past the stop, so the rule may <b>end too early</b>. "
-     + "The bar <b>deepens from amber to red the further above guessing</b> (about 5 pts or less is mild); <b style='color:var(--green)'>green bars at or below the line</b> mean the rule looks appropriate. "
+     + "<b style='color:var(--green)'>Green bars are within 10 pts of guessing</b> \u2014 the rule looks appropriate; past that the bar <b>deepens from amber to red the further above guessing</b> it goes. "
      + "Source: <code>performance_level_analyses_spring</code> (post-stop item &amp; grade-level tables).</div>";
   return h;
 }
