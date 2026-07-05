@@ -256,6 +256,21 @@
   .scoretable .pass { color: var(--green); }
   .scoretable .fail { color: #c0392b; }
 
+  /* ── Per-scale "at a glance" strip ── */
+  .glance-cap { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 10px; }
+  .scalestrip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+  .schip { display: flex; flex-direction: column; gap: 4px; min-width: 122px; flex: 1 1 122px; max-width: 200px;
+    background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 11px 14px;
+    cursor: pointer; text-align: left; font-family: inherit; box-shadow: 0 1px 2px rgba(16,32,43,.04);
+    transition: box-shadow .12s, border-color .12s, transform .04s; }
+  .schip:hover { border-color: #cbd3dc; box-shadow: 0 3px 10px rgba(16,32,43,.09); }
+  .schip:active { transform: translateY(1px); }
+  .schip.active { border-color: #11202b; box-shadow: 0 0 0 1px #11202b; }
+  .schip .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .schip .val { font-size: 15px; font-weight: 800; line-height: 1.25; font-variant-numeric: tabular-nums;
+    display: flex; align-items: center; gap: 6px; }
+  .schip .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+
   /* ── Sidebar external link ── */
   .nav-links { margin-top: 18px; padding: 16px 22px 0; border-top: 1px solid rgba(255,255,255,.08); }
   .nav-extlink {
@@ -1386,6 +1401,54 @@ function renderValidity(a) {
   return h;
 }
 
+// Per-scale "at a glance" metric chips (mirror the domain summary), each links
+// to the tab where you can dive deeper.
+function scaleMetrics(a) {
+  const out = [];
+  const dtxt = SCORE_DIST[a.code] || '\u2014';
+  out.push({ lbl: 'Score dist.', val: capFirst(dtxt), col: distColor(dtxt), view: 'dist' });
+  out.push({ lbl: 'Cronbach\u2019s <span style="text-transform:none">\u03B1</span>', val: a.overall_alpha != null ? a.overall_alpha.toFixed(2) : '\u2014',
+    col: alphaCol3(a.overall_alpha), view: 'corr' });
+  const pr = scItemRestPct(a);
+  out.push({ lbl: 'Item-rest &lt; .20', val: pr == null ? '\u2014' : Math.round(pr) + '%',
+    col: pr == null ? 'var(--muted)' : (pr < 10 ? 'var(--green)' : 'var(--orange)'), view: 'corr' });
+  const ex = scExitPct(a);
+  out.push({ lbl: 'Exit rate', val: ex == null ? '\u2014' : ex.toFixed(1) + '%',
+    col: ex == null ? 'var(--muted)' : (ex < 20 ? 'var(--green)' : (ex <= 30 ? 'var(--orange)' : '#c0392b')), view: 'exit' });
+  const r = scApriR(a);
+  out.push({ lbl: 'Concurrent', val: r == null ? '\u2014' : 'r = ' + r.toFixed(2),
+    col: r == null ? 'var(--muted)' : (r >= 0.30 ? 'var(--green)' : (r >= 0.20 ? 'var(--orange)' : '#c0392b')), view: 'validity' });
+  let dv = { val: '\u2014', col: 'var(--muted)' };
+  if (a.validity && a.validity.measures) {
+    const vd = vVerdict(a.validity);
+    if (vd.kind === 'pass') dv = { val: '\u2713 ' + (vd.best ? vd.best.label : ''), col: 'var(--green)' };
+    else if (vd.kind === 'near') dv = { val: '\u2248 ' + (vd.best ? vd.best.label : ''), col: 'var(--green)' };
+    else if (vd.kind === 'fail' && !a.validity.divergent_na) dv = { val: '\u2717 ' + (vd.best ? vd.best.label : ''), col: '#c0392b' };
+  }
+  out.push({ lbl: 'Divergent', val: dv.val, col: dv.col, view: 'validity' });
+  const steps = tierMeans(a).steps;
+  let lp = { val: '\u2014', col: 'var(--muted)' };
+  if (steps.length) {
+    const minD = Math.min.apply(null, steps.map(s => s.delta));
+    if (minD < 0) lp = { val: 'Reversal', col: '#c0392b' };
+    else if (minD < 5) lp = { val: 'Shallow step', col: 'var(--orange)' };
+    else lp = { val: 'Clear steps', col: 'var(--green)' };
+  }
+  out.push({ lbl: 'Logical progression', val: lp.val, col: lp.col, view: 'percent' });
+  return out;
+}
+
+function renderScaleStrip(a) {
+  let h = "<div class='glance-cap'>At a glance \u2014 tap a metric to open its tab.</div><div class='scalestrip'>";
+  scaleMetrics(a).forEach(m => {
+    h += "<button class='schip" + (m.view === viewMode ? ' active' : '') + "' data-goview='" + m.view + "'>"
+       + "<span class='lbl'>" + m.lbl + "</span>"
+       + "<span class='val' style='color:" + m.col + "'><span class='dot' style='background:" + m.col + "'></span>" + m.val + "</span>"
+       + "</button>";
+  });
+  return h + "</div>";
+}
+
 function render(idx) {
   const item = ITEMS[idx];
   const group = item.group;
@@ -1414,7 +1477,7 @@ function render(idx) {
   else if (viewMode === 'exit') body = renderExit(a);
   else if (viewMode === 'perf') body = renderPerf(a);
   else body = renderPercent(a);
-  document.getElementById('content').innerHTML = body;
+  document.getElementById('content').innerHTML = renderScaleStrip(a) + body;
 }
 
 function select(idx) {
@@ -1439,6 +1502,14 @@ function select(idx) {
 
 document.querySelectorAll('#viewToggle button').forEach(btn => {
   btn.addEventListener('click', () => { viewMode = btn.dataset.view; select(current); });
+});
+
+// "At a glance" chips jump to the relevant tab.
+document.getElementById('content').addEventListener('click', e => {
+  const chip = e.target.closest('[data-goview]');
+  if (!chip) return;
+  viewMode = chip.dataset.goview;
+  select(current);
 });
 
 buildNav();
