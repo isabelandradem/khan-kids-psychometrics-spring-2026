@@ -1322,6 +1322,10 @@ function renderValidity(a) {
   let pill;
   if (vd.kind === 'none') {
     pill = "<span class='vpill none'>— no a priori</span>";
+  } else if (v.divergent_na && vd.kind === 'fail') {
+    // The designated a priori doesn't target this construct, so a stronger
+    // cross-domain correlation isn't a discriminant failure — stay neutral.
+    pill = "<span class='vpill none'>— no a priori match</span>";
   } else {
     const sym = vd.kind === 'pass' ? '✓' : (vd.kind === 'near' ? '≈' : '✗');
     let lbl = vd.best ? vd.best.label : '';
@@ -1376,7 +1380,9 @@ function renderValidity(a) {
      + "<div class='k'><span class='vlegpill fail'>✗</span> beaten by another domain</div></div>";
   h += "<div class='notes'>Concurrent validity correlates this KAK scale with external direct-assessment criteria (Spring, English). "
      + "Columns are colored by domain (Math, Literacy, Language, EF). The <i>a priori</i> criterion cell is outlined; the strongest correlation is bold. "
-     + "Hover any cell for n and p.</div>";
+     + "Hover any cell for n and p."
+     + (v.divergent_na ? " <b>No discriminant verdict is shown here:</b> the a priori measure (TOPEL PA \u2014 phonological awareness) doesn\u2019t assess this scale\u2019s construct (letter names / letter sounds), so a stronger correlation with another measure isn\u2019t a discriminant failure." : "")
+     + "</div>";
   return h;
 }
 
