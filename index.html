@@ -307,6 +307,30 @@
   .scoretable .pass { color: var(--green); }
   .scoretable .fail { color: #c0392b; }
 
+  /* ── Per-scale ranking (Overview) ── */
+  .rank-intro { max-width: 900px; margin: 30px 0 0; }
+  .rank-dtitle { font-size: 15px; font-weight: 800; color: var(--ink); margin: 22px 0 10px; }
+  .ranktable { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
+  .ranktable th { text-align: left; font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .4px; padding: 0 14px 10px; border-bottom: 1px solid var(--line); }
+  .ranktable td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .ranktable tbody tr:last-child td { border-bottom: none; }
+  .ranktable tr.rank-top td { background: #f2f8f4; }
+  .ranktable tr.rank-weak td { background: #fdf3f2; }
+  .ranktable .scale { font-weight: 800; color: var(--ink); white-space: nowrap; }
+  .ranktable .scale small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .rank-met { display: inline-block; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 12.5px;
+    padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .rank-met.good { color: var(--green); background: #eef4ec; }
+  .rank-met.mid  { color: #2f6b8f; background: #eaf2f7; }
+  .rank-met.low  { color: #c0392b; background: #fdecea; }
+  .rank-flags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rank-flag { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .rank-flag.watch { color: #8a5a12; background: #fdf0dc; }
+  .rank-flag.fail  { color: #c0392b; background: #fdecea; }
+  .rank-flag.allok { color: var(--green); background: #eef4ec; }
+  .rank-flag.info  { color: #2f6b8f; background: #eaf2f7; }
+
   /* ── Per-scale view navigation (tabs + status in one) ── */
   .glance-cap { font-size: 12px; font-weight: 600; color: var(--muted); margin: 16px 0 10px; }
   .scalenav { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-bottom: 24px; }
@@ -663,24 +687,53 @@ function scStrongApriori(a) {
   return v.measures.some(m => m.key === v.apriori && m.r != null);
 }
 const DOMAIN_SHORT = { 'Mathematics': 'Math', 'Literacy': 'Literacy', 'Executive Function': 'EF', 'Language': 'Language' };
+function scBestDivergent(a) {
+  const valid = (a.validity && a.validity.measures || []).filter(m => m.r != null);
+  if (!valid.length) return null;
+  let best = valid[0]; valid.forEach(m => { if (m.r > best.r) best = m; });
+  return best;
+}
 const SCORECARD_METRICS = [
   { label: 'Score distribution', thresh: 'Normal (\u2248 bell curve)',
-    green: a => distColor(SCORE_DIST[a.code] || '') === 'var(--green)' },
+    green: a => distColor(SCORE_DIST[a.code] || '') === 'var(--green)',
+    flag: a => ({ label: 'Distribution: ' + capFirst(SCORE_DIST[a.code] || 'unknown'), sev: 'watch' }) },
   { label: 'Cronbach\u2019s \u03B1', thresh: '\u03B1 \u2265 0.70',
-    green: a => a.overall_alpha != null && a.overall_alpha >= 0.7 },
+    green: a => a.overall_alpha != null && a.overall_alpha >= 0.7,
+    flag: a => ({ label: 'Cronbach\u2019s \u03B1 = ' + (a.overall_alpha != null ? a.overall_alpha.toFixed(2) : '\u2014'),
+      sev: (a.overall_alpha != null && a.overall_alpha < 0.5) ? 'fail' : 'watch' }) },
   { label: '% items item-rest r &lt; 0.20', thresh: '&lt; 10% of items',
-    green: a => { const p = scItemRestPct(a); return p != null && p < 10; } },
+    green: a => { const p = scItemRestPct(a); return p != null && p < 10; },
+    flag: a => { const p = scItemRestPct(a); return { label: '% items with item-rest r &lt; 0.20 = ' + (p != null ? Math.round(p) + '%' : '\u2014'), sev: 'watch' }; } },
   { label: 'Exit rate', thresh: '&lt; 20% attrition',
-    green: a => { const e = scExitPct(a); return e != null && e < 20; } },
+    green: a => { const e = scExitPct(a); return e != null && e < 20; },
+    flag: a => { const e = scExitPct(a); return { label: 'Exit rate = ' + (e != null ? e.toFixed(1) + '%' : '\u2014'), sev: (e != null && e > 30) ? 'fail' : 'watch' }; } },
   { label: 'Concurrent validity', thresh: 'r \u2265 0.30 (a priori matches only)',
     applies: scStrongApriori,
-    green: a => { const r = scApriR(a); return r != null && r >= 0.30; } },
+    green: a => { const r = scApriR(a); return r != null && r >= 0.30; },
+    flag: a => { const r = scApriR(a); return { label: 'Concurrent validity r = ' + (r != null ? r.toFixed(2) : '\u2014'), sev: (r != null && r < 0.20) ? 'fail' : 'watch' }; } },
   { label: 'Divergent validity', thresh: 'a priori / same-domain strongest',
     applies: scStrongApriori,
-    green: a => { if (!a.validity || !a.validity.measures) return false; const vd = vVerdict(a.validity); return vd.kind === 'pass' || vd.kind === 'near'; } },
+    green: a => { if (!a.validity || !a.validity.measures) return false; const vd = vVerdict(a.validity); return vd.kind === 'pass' || vd.kind === 'near'; },
+    flag: a => { const b = scBestDivergent(a); return { label: 'Divergent validity: ' + (b ? b.label + ' strongest' : 'unexpected match'), sev: 'watch' }; } },
   { label: 'Logical progression', thresh: 'No reversal between PLs',
-    green: a => { const s = tierMeans(a).steps; return s.length > 0 && s.every(x => x.delta >= 0); } }
+    green: a => { const s = tierMeans(a).steps; return s.length > 0 && s.every(x => x.delta >= 0); },
+    flag: a => ({ label: 'Logical progression: reversal between PLs', sev: 'fail' }) }
 ];
+
+// Per-scale roll-up across the scorecard metrics: how many targets it meets,
+// plus readable flags for the ones it misses. Mirrors the aggregate above so
+// the two always reconcile.
+function scaleReport(a) {
+  let greens = 0, n = 0; const flags = [];
+  SCORECARD_METRICS.forEach(m => {
+    if (m.applies && !m.applies(a)) return;
+    n++;
+    if (m.green(a)) { greens++; return; }
+    flags.push(m.flag(a));
+  });
+  const fails = flags.filter(f => f.sev === 'fail').length;
+  return { greens, n, fails, flags, pct: n ? Math.round(greens / n * 100) : 0 };
+}
 
 function renderOverview() {
   const total = GROUPS.reduce((s, g) => s + g.assessments.length, 0);
@@ -717,6 +770,39 @@ function renderOverview() {
     + "<b>Concurrent validity</b> r \u2265 0.30 with the a priori match. <b>Divergent validity</b> = the a priori (or a same-domain) measure is the strongest correlation. "
     + "These two are counted only over scales with a <b>strong a priori match</b> (scales with no suitable external criterion \u2014 e.g. letter-knowledge scales vs the phonological-awareness TOPEL PA \u2014 are left out of the denominator). "
     + "<b>Logical progression</b> counts a scale as green when there is <b>no reversal</b> between performance levels \u2014 a red (next level easier) is the only failure; orange (small step) still counts.</div>";
+
+  // ── Scale ranking, by domain ──
+  h += "<div class='notes rank-intro'><h2 style='font-size:18px;margin:0 0 6px;color:var(--ink)'>Scale ranking by domain</h2>"
+    + "Every scale scored on the seven targets above. <b>Targets met</b> is the share landing green (concurrent &amp; divergent validity count only for scales with a strong a priori match). "
+    + "Flags list what a scale misses \u2014 <span class='rank-flag watch' style='padding:1px 7px'>orange = watch</span> vs <span class='rank-flag fail' style='padding:1px 7px'>red = fail</span> (\u03B1 &lt; 0.50, exit &gt; 30%, concurrent r &lt; 0.20, or a PL reversal).</div>";
+  GROUPS.forEach(g => {
+    const ranked = g.assessments.map(a => ({ a, r: scaleReport(a) }))
+      .sort((x, y) => (y.r.pct - x.r.pct) || (x.r.fails - y.r.fails) || (x.r.flags.length - y.r.flags.length));
+    h += "<div class='rank-dtitle'>" + g.domain + "</div>";
+    h += "<div class='card' style='display:block;width:100%;max-width:1024px'>";
+    h += "<table class='ranktable'><thead><tr>"
+       + "<th style='width:190px'>Scale</th><th style='width:130px'>Targets met</th><th>Flags</th>"
+       + "</tr></thead><tbody>";
+    ranked.forEach(({ a, r }) => {
+      const rowCls = r.pct === 100 ? 'rank-top' : (r.pct <= 45 ? 'rank-weak' : '');
+      const metCls = r.pct >= 80 ? 'good' : (r.pct >= 50 ? 'mid' : 'low');
+      let flagsHtml = "<div class='rank-flags'>";
+      if (!r.flags.length) {
+        flagsHtml += "<span class='rank-flag allok'>All " + r.n + " targets met</span>";
+      } else {
+        r.flags.forEach(f => { flagsHtml += "<span class='rank-flag " + f.sev + "'>" + f.label + "</span>"; });
+      }
+      if (BUG_NOTES[a.code]) flagsHtml += "<span class='rank-flag info'>exit inflated by app bug</span>";
+      flagsHtml += "</div>";
+      h += "<tr class='" + rowCls + "'>"
+        + "<td class='scale'>" + a.code + "<small>" + (a.short_title || '') + "</small></td>"
+        + "<td><span class='rank-met " + metCls + "'>" + r.greens + "/" + r.n + " \u00B7 " + r.pct + "%</span></td>"
+        + "<td>" + flagsHtml + "</td>"
+        + "</tr>";
+    });
+    h += "</tbody></table></div>";
+  });
+
   return h;
 }
 
