@@ -150,6 +150,22 @@
   .gm-chip { background: #f6f8fa; border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; min-width: 74px; }
   .gm-val { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
   .gm-lab { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-top: 2px; }
+  .gm-chip.tan { background: #f6ecd9; border-color: #e6d3ab; }
+  .gm-chip.tan .gm-lab { color: #8a6d2f; }
+  /* dumbbell comparison */
+  .db-wrap { margin-top: 2px; }
+  .db-row { display: flex; align-items: center; height: 26px; border-radius: 6px; }
+  .db-row.sel { background: #f1f4f6; }
+  .db-lab { width: 96px; min-width: 96px; text-align: right; padding-right: 12px; font-size: 12px; font-weight: 600; color: #4b5563; white-space: nowrap; }
+  .db-row.sel .db-lab { font-weight: 800; color: var(--ink); }
+  .db-track { position: relative; flex: 1; height: 100%; }
+  .db-line { position: absolute; top: 50%; transform: translateY(-50%); height: 3px; background: #c7ced4; border-radius: 2px; }
+  .db-dot { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #fff; }
+  .db-dot.khan { background: #2f8f83; box-shadow: 0 0 0 1.5px #2f8f83; }
+  .db-dot.rti { background: #e08a1e; box-shadow: 0 0 0 1.5px #e08a1e; }
+  .db-row.sel .db-dot { width: 16px; height: 16px; }
+  .db-gap { width: 52px; min-width: 52px; text-align: right; padding-left: 10px; font-size: 12px; font-weight: 600; color: #4b5563; font-variant-numeric: tabular-nums; }
+  .db-row.sel .db-gap { font-weight: 800; color: var(--ink); }
   .gh-chart { margin: 2px 0 16px; }
   .gh-chart-cap { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
   .gh-nochart { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
@@ -1481,11 +1497,12 @@ function gapSize(g) {
 function ghChips(items) {
   let s = "<div class='gm-chips'>";
   items.forEach(it => {
-    s += "<div class='gm-chip'><div class='gm-val' style='color:" + (it.col || 'var(--ink)') + "'>" + it.val + "</div>"
+    s += "<div class='gm-chip" + (it.tan ? ' tan' : '') + "'><div class='gm-val' style='color:" + (it.col || 'var(--ink)') + "'>" + it.val + "</div>"
        + "<div class='gm-lab'>" + it.lbl + "</div></div>";
   });
   return s + "</div>";
 }
+function ghPval(p) { return p == null ? '\u2014' : (p < 0.001 ? '<0.001' : p.toFixed(3)); }
 function growthBlock(num, title, chips, chart, measures, shows) {
   return "<div class='card growth-card' style='display:block;width:100%;max-width:900px'>"
     + "<div class='gh-head'><span class='gh-num'>" + num + "</span><span class='gh-title'>" + title + "</span></div>"
@@ -1494,21 +1511,41 @@ function growthBlock(num, title, chips, chart, measures, shows) {
     + "<div class='gh-shows'><span class='gh-lab'>What this scale shows</span>" + shows + "</div>"
     + "</div>";
 }
-function growthCompare(g) {
-  if (g.rti == null) return "<div class='gh-nochart'>No aligned direct-assessment measure for this scale, so there\u2019s no validated comparison.</div>";
-  const axisMax = Math.max(0.8, g.khan || 0, g.rti || 0);
-  function bar(label, val, col) {
-    const w = Math.max(0, Math.min(100, (val / axisMax) * 100));
-    const inside = w >= 16;
-    const shown = (val >= 0 ? '+' : '') + val.toFixed(2);
-    let b = "<div class='pc-bar' style='width:" + w + "%;background:" + col + "'>" + (inside ? shown : '') + "</div>";
-    if (!inside) b += "<div class='pc-out' style='left:calc(" + w + "% + 6px);color:" + col + "'>" + shown + "</div>";
-    return "<div class='pc-row'><div class='pc-label' style='width:130px;min-width:130px'>" + label + "</div><div class='pc-track'>" + b + "</div></div>";
-  }
-  return "<div class='gh-chart'><div class='gh-chart-cap'>Standardized growth (Cohen\u2019s d) \u2014 Khan vs. validated measure</div>"
-    + bar('Khan', g.khan, 'var(--blue)')
-    + bar(g.rtiName || 'Direct assessment', g.rti, '#7A4EA8')
-    + "</div>";
+// Cross-scale dumbbell: Khan (teal) vs. direct/RTI (orange) growth for every scale
+// that has a validated comparison, sorted by gap, with the current scale highlighted.
+const GROWTH_KHAN_COL = '#2f8f83';
+const GROWTH_RTI_COL = '#e08a1e';
+function growthDumbbell(curCode) {
+  const rows = Object.keys(GROWTH).map(code => Object.assign({ code: code }, GROWTH[code]))
+    .filter(r => r.khan != null && r.rti != null)
+    .map(r => Object.assign(r, { gap: +(r.rti - r.khan).toFixed(2) }))
+    .sort((a, b) => b.gap - a.gap);
+  if (!rows.length) return "";
+  const vals = [];
+  rows.forEach(r => { vals.push(r.khan, r.rti); });
+  const lo = Math.min(0, Math.min.apply(null, vals));
+  const hi = Math.max.apply(null, vals);
+  const pad = 4;
+  const pos = v => pad + (v - lo) / (hi - lo) * (100 - 2 * pad);
+
+  let h = "<div class='gh-chart'><div class='gh-chart-cap'>Standardized growth (SD units) across all scales with a validated comparison \u2014 "
+    + "<b style='color:" + GROWTH_KHAN_COL + "'>\u25CF Khan</b> vs. <b style='color:" + GROWTH_RTI_COL + "'>\u25CF direct assessment</b>. "
+    + "Sorted by the gap (RTI \u2212 Khan), shown at right.</div><div class='db-wrap'>";
+  rows.forEach(r => {
+    const sel = r.code === curCode;
+    const k = pos(r.khan), t = pos(r.rti);
+    const l = Math.min(k, t), w = Math.abs(t - k);
+    h += "<div class='db-row" + (sel ? ' sel' : '') + "'>"
+      + "<div class='db-lab'>" + r.code + "</div>"
+      + "<div class='db-track'>"
+      + "<div class='db-line' style='left:" + l + "%;width:" + w + "%'></div>"
+      + "<div class='db-dot rti' title='" + (r.rtiName || 'Direct') + " " + r.rti.toFixed(2) + "' style='left:" + t + "%'></div>"
+      + "<div class='db-dot khan' title='Khan " + r.khan.toFixed(2) + "' style='left:" + k + "%'></div>"
+      + "</div>"
+      + "<div class='db-gap'>" + r.gap.toFixed(2) + "</div>"
+      + "</div>";
+  });
+  return h + "</div></div>";
 }
 function renderGrowth(a) {
   const g = GROWTH[a.code];
@@ -1543,16 +1580,16 @@ function renderGrowth(a) {
   } else {
     shows02 += " No aligned direct-assessment comparison is available for this scale.";
   }
-  const chips02 = [{ lbl: 'Khan d', val: (g.khan >= 0 ? '+' : '') + ghFmt2(g.khan), col: growthCol(g.khan, g.khanP) },
-    { lbl: 'Khan p', val: g.khanP == null ? '\u2014' : (g.khanP < 0.001 ? '<0.001' : g.khanP.toFixed(3)), col: ghSigCol(g.khanP) },
-    { lbl: 'Khan N', val: g.khanN != null ? g.khanN : '\u2014' }];
+  const chips02 = [{ lbl: 'Khan growth (SD)', val: (g.khan >= 0 ? '+' : '') + ghFmt2(g.khan), col: growthCol(g.khan, g.khanP) },
+    { lbl: 'Khan p-value', val: ghPval(g.khanP), col: ghSigCol(g.khanP) }];
   if (g.rti != null) {
-    chips02.push({ lbl: g.rtiName + ' d', val: (g.rti >= 0 ? '+' : '') + ghFmt2(g.rti) });
-    chips02.push({ lbl: 'Gap (RTI\u2212Khan)', val: (gap >= 0 ? '+' : '') + gap.toFixed(2), col: gap < 0 ? 'var(--green)' : gp.col });
+    chips02.push({ lbl: (g.rtiName || 'Direct') + ' growth (SD)', val: (g.rti >= 0 ? '+' : '') + ghFmt2(g.rti), tan: true });
+    chips02.push({ lbl: 'Direct p-value', val: ghPval(g.rtiP), col: ghSigCol(g.rtiP), tan: true });
   }
+  const chart02 = (g.rti == null ? "<div class='gh-nochart'>No aligned direct-assessment measure for this scale, so it isn\u2019t plotted below.</div>" : "") + growthDumbbell(a.code);
   h += growthBlock("02", "Mean Diff: Khan % Correct, with RTI Comparison",
-    ghChips(chips02), growthCompare(g),
-    "For each child, <b>(spring % correct \u2212 fall % correct)</b> standardized by the pooled fall/spring SD, then averaged \u2014 a Cohen\u2019s d effect size for growth. The same calculation runs on the scale\u2019s aligned RTI direct assessment (the validated \u201Cgold-standard\u201D measure of the same skill), so the two are directly comparable.",
+    ghChips(chips02), chart02,
+    "For each child, <b>(spring % correct \u2212 fall % correct)</b> standardized by the pooled fall/spring SD, then averaged \u2014 a Cohen\u2019s d effect size for growth. The same calculation runs on the scale\u2019s aligned RTI direct assessment (the validated \u201Cgold-standard\u201D measure of the same skill), so the two are directly comparable. The chart places this scale among all scales with a validated comparison.",
     shows02);
 
   // 03 — PL growth
