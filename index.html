@@ -675,13 +675,6 @@ function renderOverview() {
 
 function renderSummary(group) {
   let h = "<div class='notes' style='margin-top:0;max-width:900px'>Domain snapshot \u2014 one row per scale. Colors flag where a scale needs a closer look; click a scale in the sidebar for full detail.</div>";
-  const bugScales = group.assessments.filter(a => BUG_NOTES[a.code]);
-  if (bugScales.length) {
-    const names = bugScales.map(a => a.short_title ? a.code + " " + a.short_title : a.code);
-    const list = names.length === 2 ? names.join(" and ") : names.join(", ");
-    h += bugBanner("A bug in the Spring app build caused the app to crash during <b>" + list
-      + "</b>. Their high exit / item-attrition rates reflect that crash, not genuine student drop-off.", true);
-  }
   h += "<div class='card' style='display:block;width:100%;max-width:1280px'>";
   h += "<table class='sumtable'><thead><tr>"
      + "<th>Scale</th>"
@@ -757,6 +750,13 @@ function renderSummary(group) {
       + "</tr>";
   });
   h += "</tbody></table></div>";
+  const bugScales = group.assessments.filter(a => BUG_NOTES[a.code]);
+  if (bugScales.length) {
+    const names = bugScales.map(a => a.short_title ? a.code + " " + a.short_title : a.code);
+    const list = names.length === 2 ? names.join(" and ") : names.join(", ");
+    h += bugBanner("A bug in the Spring app build caused the app to crash during <b>" + list
+      + "</b>. Their high exit / item-attrition rates reflect that crash, not genuine student drop-off.", true);
+  }
   h += "<div class='notes' style='max-width:900px'><b>Score distribution</b> from the total-score histograms (green = normal, black = a slight tendency, orange = explicit floor/ceiling effects). "
      + "<b>Cronbach\u2019s \u03B1</b>: green \u2265 0.70, orange 0.50\u20130.69, red &lt; 0.50. "
      + "<b>% items with item-rest r &lt; 0.20</b>: green &lt; 10%, orange \u2265 10%. "
