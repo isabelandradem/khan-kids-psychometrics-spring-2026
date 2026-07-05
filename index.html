@@ -262,20 +262,26 @@
   .scoretable .pass { color: var(--green); }
   .scoretable .fail { color: #c0392b; }
 
-  /* ── Per-scale "at a glance" strip ── */
-  .glance-cap { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 10px; }
-  .scalestrip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
-  .schip { display: flex; flex-direction: column; gap: 4px; min-width: 122px; flex: 1 1 122px; max-width: 200px;
+  /* ── Per-scale view navigation (tabs + status in one) ── */
+  .glance-cap { font-size: 12px; font-weight: 600; color: var(--muted); margin: 16px 0 10px; }
+  .scalenav { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; margin-bottom: 24px; }
+  .vcard { display: flex; flex-direction: column; gap: 7px; min-width: 148px; flex: 1 1 148px; max-width: 220px;
     background: #fff; border: 1px solid var(--line); border-radius: 11px; padding: 11px 14px;
     cursor: pointer; text-align: left; font-family: inherit; box-shadow: 0 1px 2px rgba(16,32,43,.04);
     transition: box-shadow .12s, border-color .12s, transform .04s; }
-  .schip:hover { border-color: #cbd3dc; box-shadow: 0 3px 10px rgba(16,32,43,.09); }
-  .schip:active { transform: translateY(1px); }
-  .schip.active { border-color: #11202b; box-shadow: 0 0 0 1px #11202b; }
-  .schip .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
-  .schip .val { font-size: 15px; font-weight: 800; line-height: 1.25; font-variant-numeric: tabular-nums;
-    display: flex; align-items: center; gap: 6px; }
-  .schip .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  .vcard:hover { border-color: #cbd3dc; box-shadow: 0 3px 10px rgba(16,32,43,.09); }
+  .vcard:active { transform: translateY(1px); }
+  .vcard.active { border-color: #11202b; box-shadow: 0 0 0 1px #11202b; background: #fbfcfd; }
+  .vcard-name { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .vcard-body { display: flex; flex-direction: column; gap: 3px; margin-top: auto; }
+  .vmetric { display: flex; align-items: baseline; gap: 6px; line-height: 1.25; }
+  .vmetric .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; align-self: center; }
+  .vmetric .mlbl { font-size: 10.5px; font-weight: 600; color: var(--muted); }
+  .vmetric .mval { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .vmetric.big .mval { font-size: 15px; }
+  .vmetric.pair .mval { font-size: 13px; }
+  .vcard-empty { font-size: 12.5px; font-weight: 600; color: #9aa6b2; margin-top: auto; }
+  .vcard.active .vcard-name { color: var(--ink); }
 
   /* ── Sidebar external link ── */
   .nav-links { margin-top: 18px; padding: 16px 22px 0; border-top: 1px solid rgba(255,255,255,.08); }
@@ -428,14 +434,6 @@
 <main>
   <div class="page-head">
     <h2 id="title"></h2>
-    <div class="view-toggle" id="viewToggle">
-      <button data-view="percent">Percent Correct by PL</button>
-      <button data-view="dist">Total Score Distribution</button>
-      <button data-view="exit">Exit Rate</button>
-      <button data-view="corr">Inter-Item Correlations</button>
-      <button data-view="validity">Validity</button>
-      <button data-view="perf">Discontinue Rules</button>
-    </div>
   </div>
   <div id="content"></div>
 </main>
@@ -1425,21 +1423,13 @@ function renderValidity(a) {
 
 // Per-scale "at a glance" metric chips (mirror the domain summary), each links
 // to the tab where you can dive deeper.
-function scaleMetrics(a) {
-  const out = [];
+// One card per view: the card IS the tab, and it carries that view's status.
+function scaleNav(a) {
   const dtxt = SCORE_DIST[a.code] || '\u2014';
-  out.push({ lbl: 'Score dist.', val: capFirst(dtxt), col: distColor(dtxt), view: 'dist' });
-  out.push({ lbl: 'Cronbach\u2019s <span style="text-transform:none">\u03B1</span>', val: a.overall_alpha != null ? a.overall_alpha.toFixed(2) : '\u2014',
-    col: alphaCol3(a.overall_alpha), view: 'corr' });
   const pr = scItemRestPct(a);
-  out.push({ lbl: 'Item-rest &lt; .20', val: pr == null ? '\u2014' : Math.round(pr) + '%',
-    col: pr == null ? 'var(--muted)' : (pr < 10 ? 'var(--green)' : 'var(--orange)'), view: 'corr' });
   const ex = scExitPct(a);
-  out.push({ lbl: 'Exit rate', val: ex == null ? '\u2014' : ex.toFixed(1) + '%',
-    col: ex == null ? 'var(--muted)' : (ex < 20 ? 'var(--green)' : (ex <= 30 ? 'var(--orange)' : '#c0392b')), view: 'exit' });
   const r = scApriR(a);
-  out.push({ lbl: 'Concurrent', val: r == null ? '\u2014' : 'r = ' + r.toFixed(2),
-    col: r == null ? 'var(--muted)' : (r >= 0.30 ? 'var(--green)' : (r >= 0.20 ? 'var(--orange)' : '#c0392b')), view: 'validity' });
+
   let dv = { val: '\u2014', col: 'var(--muted)' };
   if (a.validity && a.validity.measures) {
     const vd = vVerdict(a.validity);
@@ -1447,7 +1437,7 @@ function scaleMetrics(a) {
     else if (vd.kind === 'near') dv = { val: '\u2248 ' + (vd.best ? vd.best.label : ''), col: 'var(--green)' };
     else if (vd.kind === 'fail' && !a.validity.divergent_na) dv = { val: '\u2717 ' + (vd.best ? vd.best.label : ''), col: '#c0392b' };
   }
-  out.push({ lbl: 'Divergent', val: dv.val, col: dv.col, view: 'validity' });
+
   const steps = tierMeans(a).steps;
   let lp = { val: '\u2014', col: 'var(--muted)' };
   if (steps.length) {
@@ -1456,17 +1446,43 @@ function scaleMetrics(a) {
     else if (minD < 5) lp = { val: 'Shallow step', col: 'var(--orange)' };
     else lp = { val: 'Clear steps', col: 'var(--green)' };
   }
-  out.push({ lbl: 'Logical progression', val: lp.val, col: lp.col, view: 'percent' });
-  return out;
+
+  return [
+    { view: 'percent', name: 'Percent Correct by PL', metrics: [{ mlbl: 'logical progression', val: lp.val, col: lp.col }] },
+    { view: 'dist', name: 'Score Distribution', metrics: [{ val: capFirst(dtxt), col: distColor(dtxt) }] },
+    { view: 'exit', name: 'Exit Rate', metrics: [{ val: ex == null ? '\u2014' : ex.toFixed(1) + '%',
+        col: ex == null ? 'var(--muted)' : (ex < 20 ? 'var(--green)' : (ex <= 30 ? 'var(--orange)' : '#c0392b')) }] },
+    { view: 'corr', name: 'Inter-Item Correlations', metrics: [
+        { mlbl: '\u03B1', val: a.overall_alpha != null ? a.overall_alpha.toFixed(2) : '\u2014', col: alphaCol3(a.overall_alpha) },
+        { mlbl: 'item-rest', val: pr == null ? '\u2014' : Math.round(pr) + '%', col: pr == null ? 'var(--muted)' : (pr < 10 ? 'var(--green)' : 'var(--orange)') }
+      ] },
+    { view: 'validity', name: 'Validity', metrics: [
+        { mlbl: 'concurrent', val: r == null ? '\u2014' : 'r = ' + r.toFixed(2), col: r == null ? 'var(--muted)' : (r >= 0.30 ? 'var(--green)' : (r >= 0.20 ? 'var(--orange)' : '#c0392b')) },
+        { mlbl: 'divergent', val: dv.val, col: dv.col }
+      ] },
+    { view: 'perf', name: 'Discontinue Rules', metrics: [] }
+  ];
 }
 
-function renderScaleStrip(a) {
-  let h = "<div class='glance-cap'>At a glance \u2014 tap a metric to open its tab.</div><div class='scalestrip'>";
-  scaleMetrics(a).forEach(m => {
-    h += "<button class='schip" + (m.view === viewMode ? ' active' : '') + "' data-goview='" + m.view + "'>"
-       + "<span class='lbl'>" + m.lbl + "</span>"
-       + "<span class='val' style='color:" + m.col + "'><span class='dot' style='background:" + m.col + "'></span>" + m.val + "</span>"
-       + "</button>";
+function renderScaleNav(a) {
+  let h = "<div class='glance-cap'>At a glance \u2014 each card opens its detail tab.</div><div class='scalenav'>";
+  scaleNav(a).forEach(v => {
+    h += "<button class='vcard" + (v.view === viewMode ? ' active' : '') + "' data-goview='" + v.view + "'>";
+    h += "<span class='vcard-name'>" + v.name + "</span>";
+    if (v.metrics.length === 0) {
+      h += "<span class='vcard-empty'>Cut-score logic \u2192</span>";
+    } else {
+      const pair = v.metrics.length > 1;
+      h += "<span class='vcard-body'>";
+      v.metrics.forEach(m => {
+        h += "<span class='vmetric " + (pair ? 'pair' : 'big') + "'>"
+           + "<span class='dot' style='background:" + m.col + "'></span>"
+           + (m.mlbl ? "<span class='mlbl'>" + m.mlbl + "</span>" : "")
+           + "<span class='mval' style='color:" + m.col + "'>" + m.val + "</span></span>";
+      });
+      h += "</span>";
+    }
+    h += "</button>";
   });
   return h + "</div>";
 }
@@ -1474,24 +1490,18 @@ function renderScaleStrip(a) {
 function render(idx) {
   const item = ITEMS[idx];
   const group = item.group;
-  const toggle = document.getElementById('viewToggle');
   if (item.overview) {
     document.getElementById('title').textContent = 'Summary Scorecard';
-    toggle.style.display = 'none';
     document.getElementById('content').innerHTML = renderOverview();
     return;
   }
   if (item.summary) {
     document.getElementById('title').textContent = group.domain + ' \u2014 Summary';
-    toggle.style.display = 'none';
     document.getElementById('content').innerHTML = renderSummary(group);
     return;
   }
-  toggle.style.display = '';
   const a = item.a;
   document.getElementById('title').textContent = a.title;
-  document.querySelectorAll('#viewToggle button').forEach(b =>
-    b.classList.toggle('active', b.dataset.view === viewMode));
   let body;
   if (viewMode === 'corr') body = renderCorr(a);
   else if (viewMode === 'validity') body = renderValidity(a);
@@ -1500,7 +1510,7 @@ function render(idx) {
   else if (viewMode === 'perf') body = renderPerf(a);
   else body = renderPercent(a);
   const bug = BUG_NOTES[a.code] ? bugBanner(BUG_NOTES[a.code]) : "";
-  document.getElementById('content').innerHTML = renderScaleStrip(a) + bug + body;
+  document.getElementById('content').innerHTML = renderScaleNav(a) + bug + body;
 }
 
 function select(idx) {
@@ -1522,10 +1532,6 @@ function select(idx) {
       : '#' + viewMode + '/' + item.a.code.replace(/\s+/g, ''));
   history.replaceState(null, '', hash);
 }
-
-document.querySelectorAll('#viewToggle button').forEach(btn => {
-  btn.addEventListener('click', () => { viewMode = btn.dataset.view; select(current); });
-});
 
 // "At a glance" chips jump to the relevant tab.
 document.getElementById('content').addEventListener('click', e => {
