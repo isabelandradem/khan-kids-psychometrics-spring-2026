@@ -634,7 +634,7 @@ const SCORE_DIST = {
   'ATL 5a': 'normal', 'ATL 5b': 'normal', 'ATL 8': 'normal',
   'ATL 9': 'normal',
   'LIT 1a': 'normal', 'LIT 1b': 'normal', 'LIT 1c': 'normal',
-  'LIT 1d': 'slight floor effects', 'LIT 2': 'slightly bi-modal',
+  'LIT 1d': 'slight floor effects', 'LIT 2': 'normal',
   'LIT 3a': 'slightly bi-modal', 'LIT 3bi': 'normal',
   'LIT 3bii': 'normal', 'LIT 4': 'normal',
   'LIT 5': 'normal',
@@ -721,7 +721,8 @@ const SCORECARD_METRICS = [
     green: a => { if (!a.validity || !a.validity.measures) return false; const vd = vVerdict(a.validity); return vd.kind === 'pass' || vd.kind === 'near'; },
     flag: a => { const b = scBestDivergent(a); return { label: 'Divergent validity: ' + (b ? b.label + ' strongest' : 'unexpected match'), sev: 'watch' }; } },
   { label: 'Logical progression', thresh: 'No reversal between PLs',
-    green: a => { const s = tierMeans(a).steps; return s.length > 0 && s.every(x => x.delta >= 0); },
+    applies: a => tierMeans(a).steps.length > 0,
+    green: a => tierMeans(a).steps.every(x => x.delta >= 0),
     flag: a => ({ label: 'Logical progression: reversal between PLs', sev: 'fail' }) }
 ];
 
